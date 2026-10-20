@@ -1,0 +1,6 @@
+{
+  "name": "golf-bicentenario-estacionamientos",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}

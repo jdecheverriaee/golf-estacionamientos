@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Estacionamientos · Golf Bicentenario</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --dark:#111827;
+    --c-libre:#16a34a; --c-reservado:#d97706; --c-asignado:#4f46e5; --c-nodisp:#6b7280;
+    --sel:#f43f5e;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;display:flex;flex-direction:column;overflow:hidden}
+  button,input,select,textarea{font:inherit;color:inherit}
+
+  /* Header */
+  header{background:var(--dark);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;flex:none}
+  .brand b{display:block;font-size:15px}
+  .brand small{color:#9ca3af;font-size:11.5px}
+  nav{display:flex;gap:4px;background:#1f2937;padding:4px;border-radius:10px}
+  nav button{background:none;border:0;color:#d1d5db;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:500}
+  nav button.on{background:#fff;color:var(--dark)}
+  .kpis{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap}
+  .kpi{display:flex;align-items:center;gap:7px;font-size:12px;color:#d1d5db}
+  .kpi b{font-size:16px;color:#fff}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+
+  .view{flex:1;min-height:0;display:none}
+  .view.on{display:flex}
+
+  /* ---------- PLANO ---------- */
+  #vPlano{flex-direction:column}
+  .pbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+  .pisoSel{display:flex;align-items:center;gap:4px}
+  .pisoSel select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font-weight:600;min-width:250px;cursor:pointer}
+  .ib{border:1px solid var(--line);background:#fff;border-radius:8px;width:34px;height:34px;cursor:pointer;display:inline-grid;place-items:center;font-size:15px}
+  .ib:hover{background:#f3f4f6}
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12.5px}
+  .chip.off{opacity:.45;text-decoration:line-through}
+  .chip em{font-style:normal;color:var(--muted)}
+  .search{flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--line);border-radius:9px}
+  .zoom{display:flex;gap:4px}
+
+  .pbody{flex:1;min-height:0;display:flex}
+  .viewport{flex:1;position:relative;overflow:hidden;background:#fafafa;cursor:grab;touch-action:none}
+  .viewport.drag{cursor:grabbing}
+  .stage{position:absolute;left:0;top:0;transform-origin:0 0}
+  .stage img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  .vpmsg{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:20px;pointer-events:none}
+  .found{position:absolute;left:12px;top:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.08);max-width:340px;display:none}
+  .found a{color:var(--c-asignado);cursor:pointer;text-decoration:underline;margin-right:6px}
+
+  .mk{position:absolute;transform:translate(-50%,-50%) scale(var(--inv,1));transform-origin:center;border:0;padding:0;background:none;cursor:pointer}
+  .mk span{display:block;min-width:30px;height:21px;padding:0 5px;border-radius:11px;color:#fff;font-size:11.5px;font-weight:700;line-height:21px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35);border:2px solid #fff}
+  .mk em{position:absolute;left:50%;top:22px;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.92);color:var(--ink);padding:0 4px;border-radius:4px;white-space:nowrap;display:none}
+  .stage.det .mk em{display:block}
+  .mk.Libre span{background:var(--c-libre)}
+  .mk.Reservado span{background:var(--c-reservado)}
+  .mk.Asignado span{background:var(--c-asignado)}
+  .mk.Nodisponible span{background:var(--c-nodisp)}
+  .mk.sel span{outline:3px solid var(--sel);outline-offset:1px}
+  .mk.sel{z-index:3}
+  .mk.dim{opacity:.18}
+  .mk.off{display:none}
+  .mk.hit{z-index:4}
+  .mk.hit span{animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.6)}50%{box-shadow:0 0 0 9px rgba(244,63,94,0)}}
+
+  .tip{position:fixed;pointer-events:none;background:var(--dark);color:#fff;font-size:12px;padding:7px 10px;border-radius:8px;z-index:20;display:none;max-width:260px;line-height:1.4}
+
+  /* Panel lateral */
+  .side{width:330px;flex:none;background:var(--card);border-left:1px solid var(--line);overflow:auto;padding:16px}
+  .side h3{margin:0 0 4px;font-size:15px}
+  .side .sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+  .stbars .row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+  .stbars .row .lb{width:100px}
+  .stbars .row .tr{flex:1;height:8px;background:#f3f4f6;border-radius:99px;overflow:hidden}
+  .stbars .row .tr i{display:block;height:100%}
+  .stbars .row b{width:34px;text-align:right}
+  .hint{background:#f9fafb;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--muted);font-size:12.5px;line-height:1.5;margin:14px 0}
+  .dl{margin-top:8px}
+  .dl .d{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13px}
+  .dl .d:hover{background:#eef2ff}
+  .dl .d span{color:var(--muted)}
+  .selchips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 12px}
+  .selchips button{border:0;border-radius:99px;padding:3px 9px;color:#fff;font-weight:600;font-size:12px;cursor:pointer}
+  .info{background:#f9fafb;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;margin-bottom:12px}
+  .info b{font-weight:600}
+  label.l{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.03em}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg button{border:1.5px solid var(--line);background:#fff;border-radius:9px;padding:8px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:13px}
+  .seg button.on{border-color:var(--ink);background:#f9fafb;font-weight:600}
+  .fld{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  .fld:disabled{background:#f3f4f6;color:#9ca3af}
+  textarea.fld{resize:vertical;min-height:58px}
+  .warn{color:#b45309;font-size:12.5px;margin-top:8px}
+  .acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .btn{border:0;border-radius:9px;padding:9px 14px;cursor:pointer;font-weight:600}
+  .btn.p{background:var(--dark);color:#fff;flex:1}
+  .btn.r{background:#fee2e2;color:#991b1b}
+  .btn.g{background:#f3f4f6;color:var(--ink)}
+  .btn:disabled{opacity:.5;cursor:wait}
+
+  /* ---------- DASHBOARD ---------- */
+  #vDash,#vList{overflow:auto;padding:18px;flex-direction:column;gap:16px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card .t{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .card .v{font-size:28px;font-weight:700;margin-top:4px}
+  .card .p{font-size:12px;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+  @media (max-width:1000px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel h3{margin:0 0 12px;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+  .panel h3 small{font-weight:400;color:var(--muted)}
+  .fb{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;cursor:pointer}
+  .fb:hover{background:#f9fafb}
+  .fb .bar{display:flex;height:22px;border-radius:6px;overflow:hidden;background:#f3f4f6;gap:2px}
+  .fb .bar i{display:block;height:100%}
+  .fb .n{font-size:12px;color:var(--muted);text-align:right}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:8px}
+  .legend span{display:flex;align-items:center;gap:5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:8px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:1}
+  td{padding:6px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  tr.click{cursor:pointer}
+  tr.click:hover td{background:#f9fafb}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+  .scroll{max-height:380px;overflow:auto}
+
+  /* ---------- LISTADO ---------- */
+  .lbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .lbar select{padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  .lt td input,.lt td select{padding:5px 8px;border:1px solid transparent;border-radius:7px;background:transparent;width:100%}
+  .lt td input:hover,.lt td select:hover{border-color:var(--line)}
+  .lt td input:focus,.lt td select:focus{border-color:var(--c-asignado);background:#fff;outline:none}
+  .lt td.saving{opacity:.5}
+  .lt input.need{border-color:#f59e0b;background:#fffbeb}
+  .go{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 8px;cursor:pointer;font-size:12px}
+
+  .user{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#d1d5db}
+  .user button{background:#1f2937;border:0;color:#e5e7eb;border-radius:7px;padding:6px 10px;cursor:pointer}
+  .login{position:fixed;inset:0;background:#0b1220;display:grid;place-items:center;z-index:50;padding:16px}
+  .login[hidden]{display:none}
+  .lgcard{background:#fff;border-radius:16px;padding:28px;width:min(380px,100%);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .lgcard h1{margin:0 0 4px;font-size:20px}
+  .lgcard p{margin:0 0 18px;color:var(--muted);font-size:13px}
+  .lgcard label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+  .lgcard label span{font-weight:400}
+  .lgcard .btn{width:100%;margin-top:18px;padding:11px}
+  .lgerr{color:#b91c1c;font-size:13px;margin-top:10px;min-height:18px}
+  .toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:9px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+  .toast.show{opacity:1}
+  .toast.err{background:#b91c1c}
+  .loading{flex:1;display:grid;place-items:center;color:var(--muted)}
+
+  @media (max-width:800px){
+    .pbody{flex-direction:column}
+    .side{width:auto;max-height:45vh;border-left:0;border-top:1px solid var(--line)}
+    .kpis{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>Estacionamientos · Golf Bicentenario</b><small>Vitacura 2987 / Luz 2988 · Las Condes</small></div>
+  <nav id="nav">
+    <button data-v="vPlano" class="on">Plano</button>
+    <button data-v="vDash">Dashboard</button>
+    <button data-v="vList">Listado</button>
+  </nav>
+  <div class="kpis" id="kpis"></div>
+  <div class="user"><span id="uName"></span><button id="bSalir" title="Cerrar sesión">Salir</button></div>
+</header>
+
+<!-- PLANO -->
+<section class="view on" id="vPlano">
+  <div class="pbar">
+    <div class="pisoSel">
+      <button class="ib" id="prevP" title="Piso anterior">‹</button>
+      <select id="selPiso"></select>
+      <button class="ib" id="nextP" title="Piso siguiente">›</button>
+    </div>
+    <div class="chips" id="chipsE"></div>
+    <input class="search" id="q" type="search" placeholder="Buscar depto o N° de estacionamiento…">
+    <div class="zoom">
+      <button class="ib" id="zIn" title="Acercar">+</button>
+      <button class="ib" id="zOut" title="Alejar">−</button>
+      <button class="ib" id="zFit" title="Ajustar a pantalla">⤢</button>
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="viewport" id="vp">
+      <div class="stage" id="stage"><img id="img" alt=""><div id="marks"></div></div>
+      <div class="vpmsg" id="vpmsg">Cargando…</div>
+      <div class="found" id="found"></div>
+    </div>
+    <aside class="side" id="side"></aside>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section class="view" id="vDash"></section>
+
+<!-- LISTADO -->
+<section class="view" id="vList">
+  <div class="lbar">
+    <select id="lPiso"></select>
+    <select id="lEstado"></select>
+    <input class="search" id="lq" type="search" placeholder="Buscar N°, depto u observación…">
+    <span id="lCount" style="color:var(--muted);font-size:12.5px"></span>
+  </div>
+  <div class="panel" style="padding:0;overflow:auto;flex:1;min-height:0">
+    <table class="lt"><thead><tr><th style="width:80px">N°</th><th style="width:70px">Piso</th><th style="width:170px">Estado</th><th style="width:150px">Depto</th><th>Observaciones</th><th style="width:150px">Actualizado</th><th style="width:70px"></th></tr></thead><tbody id="lBody"></tbody></table>
+  </div>
+</section>
+
+<datalist id="dlDeptos"></datalist>
+<div class="tip" id="tip"></div>
+<div class="toast" id="toast"></div>
+
+<div class="login" id="login" hidden>
+  <form class="lgcard" id="lgForm">
+    <h1>Estacionamientos</h1>
+    <p>Golf Bicentenario · Vitacura 2987 / Luz 2988</p>
+    <label for="lgNombre">Tu nombre <span>(queda registrado en el historial)</span></label>
+    <input class="fld" id="lgNombre" autocomplete="name" required maxlength="60">
+    <label for="lgPass">Contraseña</label>
+    <input class="fld" id="lgPass" type="password" autocomplete="current-password" required>
+    <div class="lgerr" id="lgErr"></div>
+    <button class="btn p" type="submit" id="lgBtn">Entrar</button>
+  </form>
+</div>
+
+<script>
+const COL = {'Libre':'var(--c-libre)','Reservado':'var(--c-reservado)','Asignado':'var(--c-asignado)','No disponible':'var(--c-nodisp)'};
+const HEX = {'Libre':'#16a34a','Reservado':'#d97706','Asignado':'#4f46e5','No disponible':'#6b7280'};
+const BG  = {'Libre':'#dcfce7','Reservado':'#fef3c7','Asignado':'#e0e7ff','No disponible':'#e5e7eb'};
+const cls = e => e.replace(/\s/g,'');
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Comunicación con el servidor (Vercel → Google Sheets) ---------- */
+let USUARIO = '';
+try { USUARIO = localStorage.getItem('estac_nombre') || ''; } catch(e) {}
+
+async function api(fn, ...args){
+  if (window.DEMO) return new Promise((res, rej) => setTimeout(() => { try { res(DEMO.api[fn](...args)); } catch(e){ rej(e); } }, 120));
+  if (fn === 'getPlano') return '/api/plano?k=' + encodeURIComponent(args[0]);
+  const opt = fn === 'getDatos' ? {cache:'no-store'} :
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({numeros:args[0], cambios:args[1], usuario:USUARIO})};
+  const r = await fetch(fn === 'getDatos' ? '/api/datos' : '/api/guardar', opt);
+  let j = {}; try { j = await r.json(); } catch(e) {}
+  if (r.status === 401){ mostrarLogin(); throw new Error('Inicia sesión para continuar'); }
+  if (!r.ok) throw new Error(j.error || ('Error de conexión (' + r.status + ')'));
+  return j;
+}
+
+/* ---------- Estado de la app ---------- */
+let D = {spots:[], pisos:[], estados:[], hist:[]};
+let piso = null, sel = new Set(), q = '', ocultos = new Set();
+let form = {estado:null, depto:'', obs:''};
+const imgCache = {};
+const view = {s:1, tx:0, ty:0, W:2800, H:2267};
+
+function toast(m, err){ const t=$('toast'); t.textContent=m; t.className='toast show'+(err?' err':''); clearTimeout(t._h); t._h=setTimeout(()=>t.className='toast', 2800); }
+const spotsPiso = p => D.spots.filter(s => s.piso === p);
+const byN = n => D.spots.find(s => s.n === n);
+function counts(list){ const c={}; D.estados.forEach(e=>c[e]=0); list.forEach(s=>c[s.estado]=(c[s.estado]||0)+1); return c; }
+function deptoMap(){ const m={}; D.spots.forEach(s=>{ if(s.depto) (m[s.depto]=m[s.depto]||[]).push(s); }); return m; }
+const sortDeptos = ks => ks.sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+
+/* ---------- Render global ---------- */
+function renderAll(){
+  const c = counts(D.spots);
+  $('kpis').innerHTML = `<div class="kpi">Total <b>${D.spots.length}</b></div>` +
+    D.estados.map(e=>`<div class="kpi"><i class="dot" style="background:${COL[e]}"></i>${e} <b>${c[e]}</b></div>`).join('');
+  $('dlDeptos').innerHTML = sortDeptos(Object.keys(deptoMap())).map(k=>`<option value="${esc(k)}">`).join('');
+  renderPisoSelect(); renderChips(); renderMarks(); renderSide();
+  if ($('vDash').classList.contains('on')) renderDash();
+  if ($('vList').classList.contains('on')) renderList();
+}
+
+function renderPisoSelect(){
+  $('selPiso').innerHTML = D.pisos.map(p => {
+    const l = spotsPiso(p.piso), c = counts(l);
+    return `<option value="${p.piso}" ${p.piso===piso?'selected':''}>Subterráneo ${p.piso}  ·  ${l.length} estac.  ·  ${c['Libre']} libres</option>`;
+  }).join('');
+}
+
+function renderChips(){
+  const c = counts(spotsPiso(piso));
+  $('chipsE').innerHTML = D.estados.map(e =>
+    `<button class="chip ${ocultos.has(e)?'off':''}" data-e="${e}" title="Mostrar/ocultar ${e}"><i class="dot" style="background:${COL[e]}"></i>${e} <em>${c[e]}</em></button>`).join('');
+}
+
+/* ---------- Plano ---------- */
+async function cargarPiso(p){
+  piso = p; sel.clear(); resetForm();
+  const info = D.pisos.find(x => x.piso === p);
+  $('vpmsg').style.display = ''; $('vpmsg').textContent = 'Cargando plano…';
+  $('img').style.visibility = 'hidden';
+  renderAll();
+  try{
+    if (!imgCache[info.plano]) imgCache[info.plano] = await api('getPlano', info.plano);
+    if (piso !== p) return;
+    const img = $('img');
+    await new Promise((r, rej) => { img.onload = r; img.onerror = () => rej(new Error('No se pudo cargar el plano. Recarga la página.')); img.src = imgCache[info.plano]; if (img.complete && img.naturalWidth) r(); });
+    view.W = img.naturalWidth; view.H = img.naturalHeight;
+    $('stage').style.width = view.W+'px'; $('stage').style.height = view.H+'px';
+    img.style.visibility = ''; $('vpmsg').style.display = 'none';
+    fit();
+  }catch(e){ $('vpmsg').textContent = e.message || String(e); }
+}
+
+function renderMarks(){
+  const list = spotsPiso(piso);
+  const qs = q.toLowerCase();
+  $('marks').innerHTML = list.filter(s => s.xy).map(s => {
+    const hit = qs && (String(s.n) === qs || (s.depto && s.depto.toLowerCase() === qs));
+    const part = qs && !hit && s.depto && s.depto.toLowerCase().includes(qs);
+    const c = ['mk', cls(s.estado), sel.has(s.n)?'sel':'', ocultos.has(s.estado)?'off':'',
+               qs ? (hit||part ? 'hit' : 'dim') : ''].join(' ');
+    return `<button class="${c}" data-n="${s.n}" style="left:${s.xy[0]}%;top:${s.xy[1]}%"><span>${s.n}</span>${s.depto?`<em>${esc(s.depto)}</em>`:''}</button>`;
+  }).join('');
+  // resultados en otros pisos
+  const f = $('found');
+  if (qs){
+    const m = D.spots.filter(s => String(s.n) === qs || (s.depto && s.depto.toLowerCase().includes(qs)));
+    f.style.display = 'block';
+    f.innerHTML = m.length ? `<b>${m.length} resultado${m.length>1?'s':''}:</b> ` +
+      m.slice(0,30).map(s=>`<a data-go="${s.n}">${s.n}${s.depto?' ('+esc(s.depto)+')':''} · ${s.piso}</a>`).join(' ')
+      : 'Sin resultados';
+  } else f.style.display = 'none';
+  applyView();
+}
+
+function applyView(){
+  $('stage').style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  $('stage').style.setProperty('--inv', (1/view.s).toFixed(4));
+  $('stage').classList.toggle('det', view.s >= 0.55);
+}
+function fit(){
+  const r = $('vp').getBoundingClientRect();
+  view.s = Math.min(r.width/view.W, r.height/view.H) * 0.97;
+  view.tx = (r.width - view.W*view.s)/2; view.ty = (r.height - view.H*view.s)/2;
+  applyView();
+}
+function zoomAt(k, mx, my){
+  const ns = Math.min(3, Math.max(0.1, view.s*k)); k = ns/view.s;
+  view.tx = mx - (mx - view.tx)*k; view.ty = my - (my - view.ty)*k; view.s = ns; applyView();
+}
+function centerOn(s){
+  if (!s.xy) return;
+  const r = $('vp').getBoundingClientRect();
+  if (view.s < 0.6) view.s = 0.7;
+  view.tx = r.width/2 - s.xy[0]/100*view.W*view.s;
+  view.ty = r.height/2 - s.xy[1]/100*view.H*view.s;
+  applyView();
+}
+
+/* ---------- Panel lateral ---------- */
+function resetForm(){ form = {estado:null, depto:'', obs:''}; }
+
+function renderSide(){
+  const side = $('side');
+  if (!sel.size){
+    const list = spotsPiso(piso), c = counts(list), tot = list.length || 1;
+    const dm = {}; list.forEach(s => { if (s.depto) (dm[s.depto]=dm[s.depto]||[]).push(s.n); });
+    const ks = sortDeptos(Object.keys(dm));
+    side.innerHTML = `<h3>Subterráneo ${piso||''}</h3><div class="sub">${list.length} estacionamientos</div>
+      <div class="stbars">${D.estados.map(e=>`<div class="row"><i class="dot" style="background:${COL[e]}"></i><span class="lb">${e}</span><div class="tr"><i style="width:${c[e]*100/tot}%;background:${COL[e]}"></i></div><b>${c[e]}</b></div>`).join('')}</div>
+      <div class="hint">👆 Haz clic en un estacionamiento del plano para asignarlo o cambiar su estado. Puedes seleccionar varios y aplicar el cambio a todos.<br>🖱️ Rueda para zoom · arrastra para moverte · Esc para limpiar.</div>
+      <label class="l">Departamentos en este piso (${ks.length})</label>
+      <div class="dl">${ks.length ? ks.map(k=>`<div class="d" data-dep="${esc(k)}"><b>${esc(k)}</b><span>${dm[k].join(', ')}</span></div>`).join('') : '<div class="sub">Aún no hay asignaciones en este piso.</div>'}</div>`;
+    return;
+  }
+  const ss = [...sel].map(byN).filter(Boolean).sort((a,b)=>a.n-b.n);
+  const one = ss.length === 1 ? ss[0] : null;
+  if (form.estado === null){
+    // valores iniciales del formulario
+    const est = [...new Set(ss.map(s=>s.estado))], dep = [...new Set(ss.map(s=>s.depto).filter(Boolean))];
+    form.estado = est.length === 1 ? est[0] : 'Asignado';
+    if (form.estado === 'Libre') form.estado = 'Asignado';
+    form.depto = dep.length === 1 ? dep[0] : '';
+    form.obs = one ? one.obs : '';
+  }
+  const otros = ss.filter(s => s.depto && form.depto && s.depto !== form.depto.toUpperCase());
+  const needD = form.estado === 'Asignado' || form.estado === 'Reservado';
+  side.innerHTML = `<h3>${ss.length} estacionamiento${ss.length>1?'s':''} seleccionado${ss.length>1?'s':''}</h3>
+    <div class="selchips">${ss.map(s=>`<button data-rm="${s.n}" style="background:${HEX[s.estado]}" title="Quitar de la selección">${s.n} ✕</button>`).join('')}</div>
+    ${one ? `<div class="info">Piso <b>${one.piso}</b> · Estado actual <b>${one.estado}</b>${one.depto?` · Depto <b>${esc(one.depto)}</b>`:''}${one.fecha?`<br>Actualizado: ${esc(one.fecha)}`:''}</div>` : ''}
+    <label class="l">Nuevo estado</label>
+    <div class="seg" id="seg">${D.estados.map(e=>`<button data-st="${e}" class="${form.estado===e?'on':''}"><i class="dot" style="background:${COL[e]}"></i>${e}</button>`).join('')}</div>
+    <label class="l">Departamento</label>
+    <input class="fld" id="fDep" list="dlDeptos" placeholder="${needD?'Ej. 1204':'No aplica'}" value="${esc(needD?form.depto:'')}" ${needD?'':'disabled'} autocomplete="off">
+    <label class="l">Observaciones</label>
+    <textarea class="fld" id="fObs" placeholder="Opcional">${esc(form.obs)}</textarea>
+    ${otros.length ? `<div class="warn">⚠ ${otros.map(s=>`${s.n} está con ${esc(s.depto)}`).join(', ')}. Al guardar se reasigna.</div>` : ''}
+    <div class="acts">
+      <button class="btn p" id="bSave">Guardar</button>
+      ${ss.some(s=>s.estado!=='Libre') ? '<button class="btn r" id="bFree">Liberar</button>' : ''}
+      <button class="btn g" id="bCancel">Cancelar</button>
+    </div>`;
+  const fd = $('fDep'); if (needD && !form.depto) setTimeout(()=>fd.focus(), 30);
+}
+
+async function guardar(nums, cambios, msg){
+  document.querySelectorAll('#bSave,#bFree').forEach(b=>b.disabled=true);
+  try{
+    D = await api('guardar', nums, cambios);
+    toast(msg); return true;
+  }catch(e){ toast(e.message || String(e), true); return false; }
+  finally{ document.querySelectorAll('#bSave,#bFree').forEach(b=>b.disabled=false); }
+}
+
+/* ---------- Dashboard ---------- */
+function renderDash(){
+  const c = counts(D.spots), tot = D.spots.length || 1;
+  const dm = deptoMap(), ks = sortDeptos(Object.keys(dm));
+  const pctOc = Math.round((c['Asignado']+c['Reservado'])*100/tot);
+  $('vDash').innerHTML = `
+  <div class="cards">
+    <div class="card"><div class="t">Total estacionamientos</div><div class="v">${D.spots.length}</div><div class="p">${pctOc}% asignado o reservado</div></div>
+    ${D.estados.map(e=>`<div class="card" style="border-top:4px solid ${COL[e]}"><div class="t"><i class="dot" style="background:${COL[e]}"></i>${e}</div><div class="v">${c[e]}</div><div class="p">${Math.round(c[e]*100/tot)}% del total</div></div>`).join('')}
+    <div class="card"><div class="t">Departamentos con estac.</div><div class="v">${ks.length}</div><div class="p">${ks.filter(k=>dm[k].length>1).length} con 2 o más</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Estado por piso <small>clic para ver en el plano</small></h3>
+      <div class="legend">${D.estados.map(e=>`<span><i class="dot" style="background:${COL[e]}"></i>${e}</span>`).join('')}</div>
+      ${D.pisos.map(p=>{ const l=spotsPiso(p.piso), cc=counts(l), t=l.length||1;
+        return `<div class="fb" data-piso="${p.piso}"><b>Subterráneo ${p.piso}</b>
+          <div class="bar">${D.estados.filter(e=>cc[e]).map(e=>`<i style="width:${cc[e]*100/t}%;background:${COL[e]}" title="${e}: ${cc[e]}"></i>`).join('')}</div>
+          <span class="n">${cc['Libre']} libres / ${l.length}</span></div>`; }).join('')}
+    </div>
+    <div class="panel">
+      <h3>Actividad reciente <small>${D.hist.length} últimos cambios</small></h3>
+      <div class="scroll">${D.hist.length ? `<table><tbody>${D.hist.map(h=>`<tr><td><b>${esc(h.n)}</b></td><td>${pill(h.antE)} → ${pill(h.nuevoE)}${h.nuevoD?` <b>${esc(h.nuevoD)}</b>`:''}${h.antD&&h.antD!==h.nuevoD?` <span style="color:var(--muted)">(antes ${esc(h.antD)})</span>`:''}</td><td style="color:var(--muted);font-size:12px;white-space:nowrap">${esc(h.fecha)}</td></tr>`).join('')}</tbody></table>` : '<div class="sub" style="color:var(--muted)">Sin cambios registrados todavía.</div>'}</div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Departamentos <small>clic para ubicarlos en el plano</small></h3>
+    <div class="scroll" style="max-height:420px">${ks.length ? `<table><thead><tr><th>Depto</th><th>Cant.</th><th>Estacionamientos</th></tr></thead><tbody>${ks.map(k=>`<tr class="click" data-dep="${esc(k)}"><td><b>${esc(k)}</b></td><td>${dm[k].length}</td><td>${dm[k].sort((a,b)=>a.n-b.n).map(s=>`<span class="pill" style="background:${BG[s.estado]};color:${HEX[s.estado]}">${s.n} · ${s.piso}${s.estado==='Reservado'?' · res.':''}</span>`).join(' ')}</td></tr>`).join('')}</tbody></table>` : '<div style="color:var(--muted)">Aún no hay departamentos asignados.</div>'}</div>
+  </div>`;
+}
+const pill = e => e ? `<span class="pill" style="background:${BG[e]||'#eee'};color:${HEX[e]||'#333'}">${esc(e)}</span>` : '';
+
+/* ---------- Listado ---------- */
+function renderList(){
+  if (!$('lPiso').options.length){
+    $('lPiso').innerHTML = '<option value="">Todos los pisos</option>' + D.pisos.map(p=>`<option value="${p.piso}">Subterráneo ${p.piso}</option>`).join('');
+    $('lEstado').innerHTML = '<option value="">Todos los estados</option>' + D.estados.map(e=>`<option>${e}</option>`).join('');
+  }
+  const fp = $('lPiso').value, fe = $('lEstado').value, fq = $('lq').value.trim().toLowerCase();
+  const rows = D.spots.filter(s => (!fp||s.piso===fp) && (!fe||s.estado===fe) &&
+    (!fq || String(s.n)===fq || (s.depto||'').toLowerCase().includes(fq) || (s.obs||'').toLowerCase().includes(fq)));
+  $('lCount').textContent = `${rows.length} de ${D.spots.length}`;
+  $('lBody').innerHTML = rows.map(s => `<tr data-n="${s.n}">
+    <td><b>${s.n}</b></td><td>${s.piso}</td>
+    <td><select data-f="estado" style="color:${HEX[s.estado]};font-weight:600">${D.estados.map(e=>`<option ${e===s.estado?'selected':''}>${e}</option>`).join('')}</select></td>
+    <td><input data-f="depto" list="dlDeptos" value="${esc(s.depto)}" placeholder="—" autocomplete="off"></td>
+    <td><input data-f="obs" value="${esc(s.obs)}" placeholder="—"></td>
+    <td style="color:var(--muted);font-size:12px">${esc(s.fecha)}</td>
+    <td>${s.xy?`<button class="go" data-go="${s.n}" title="Ver en plano">📍 Ver</button>`:''}</td></tr>`).join('');
+}
+
+async function guardarFila(tr){
+  const n = Number(tr.dataset.n), s = byN(n);
+  let estado = tr.querySelector('[data-f=estado]').value;
+  const dInp = tr.querySelector('[data-f=depto]');
+  let depto = dInp.value.trim().toUpperCase(), obs = tr.querySelector('[data-f=obs]').value.trim();
+  if (depto && estado === 'Libre') estado = 'Asignado';           // escribir depto en uno libre lo asigna
+  if (!depto && s.depto && (estado === 'Asignado' || estado === 'Reservado') && estado === s.estado) estado = 'Libre'; // borrar depto lo libera
+  if ((estado === 'Asignado' || estado === 'Reservado') && !depto){
+    dInp.classList.add('need'); dInp.focus(); toast('Escribe el departamento para dejarlo ' + estado); return;
+  }
+  if (estado === s.estado && depto === (s.depto||'') && obs === (s.obs||'')) return;
+  tr.querySelectorAll('td').forEach(td=>td.classList.add('saving'));
+  const ok = await guardar([n], {estado, depto, obs}, `Estac. ${n} → ${estado}${depto?' · '+depto:''}`);
+  renderAll(); if (!ok) renderList();
+}
+
+/* ---------- Eventos ---------- */
+$('nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...$('nav').children].forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === b.dataset.v));
+  if (b.dataset.v === 'vDash') renderDash();
+  if (b.dataset.v === 'vList') renderList();
+  if (b.dataset.v === 'vPlano') requestAnimationFrame(fit);
+});
+function irAPlano(p, n){
+  $('nav').querySelector('[data-v=vPlano]').click();
+  const go = () => { if (n){ const s = byN(n); sel = new Set([n]); resetForm(); renderMarks(); renderSide(); centerOn(s); } };
+  if (p !== piso) cargarPiso(p).then(go); else go();
+}
+
+$('selPiso').addEventListener('change', e => cargarPiso(e.target.value));
+$('prevP').onclick = () => { const i = D.pisos.findIndex(p=>p.piso===piso); if (i>0) cargarPiso(D.pisos[i-1].piso); };
+$('nextP').onclick = () => { const i = D.pisos.findIndex(p=>p.piso===piso); if (i<D.pisos.length-1) cargarPiso(D.pisos[i+1].piso); };
+$('chipsE').addEventListener('click', e => { const b=e.target.closest('.chip'); if(!b) return; const k=b.dataset.e; ocultos.has(k)?ocultos.delete(k):ocultos.add(k); renderChips(); renderMarks(); });
+$('q').addEventListener('input', e => {
+  q = e.target.value.trim(); renderMarks();
+  const qs = q.toLowerCase();
+  const m = D.spots.filter(s => String(s.n)===qs || (s.depto && s.depto.toLowerCase()===qs));
+  if (m.length && !m.some(s=>s.piso===piso)) cargarPiso(m[0].piso).then(()=>{ renderMarks(); });
+});
+$('found').addEventListener('click', e => { const a=e.target.closest('[data-go]'); if(a){ const s=byN(Number(a.dataset.go)); irAPlano(s.piso, s.n); } });
+$('zIn').onclick = () => { const r=$('vp').getBoundingClientRect(); zoomAt(1.3, r.width/2, r.height/2); };
+$('zOut').onclick = () => { const r=$('vp').getBoundingClientRect(); zoomAt(1/1.3, r.width/2, r.height/2); };
+$('zFit').onclick = fit;
+window.addEventListener('resize', () => { if ($('vPlano').classList.contains('on')) fit(); });
+
+// Zoom con rueda y arrastre para mover
+const vp = $('vp');
+vp.addEventListener('wheel', e => { e.preventDefault(); const r=vp.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY*0.0015), e.clientX-r.left, e.clientY-r.top); }, {passive:false});
+let drag = null;
+vp.addEventListener('pointerdown', e => { drag = {x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty, moved:false}; });
+window.addEventListener('pointermove', e => {
+  if (drag){
+    const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    if (!drag.moved && Math.hypot(dx,dy) > 5){ drag.moved = true; vp.classList.add('drag'); vp.setPointerCapture && vp.setPointerCapture(e.pointerId); }
+    if (drag.moved){ view.tx = drag.tx+dx; view.ty = drag.ty+dy; applyView(); }
+    $('tip').style.display='none'; return;
+  }
+  const mk = e.target.closest && e.target.closest('.mk'), tip = $('tip');
+  if (mk){
+    const s = byN(Number(mk.dataset.n));
+    tip.innerHTML = `<b>Estac. ${s.n}</b> · Piso ${s.piso}<br>${s.estado}${s.depto?' · Depto <b>'+esc(s.depto)+'</b>':''}${s.obs?'<br>'+esc(s.obs):''}`;
+    tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px';
+  } else tip.style.display='none';
+});
+window.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const moved = drag.moved; drag = null; vp.classList.remove('drag');
+  if (moved) return;
+  const mk = e.target.closest && e.target.closest('.mk');
+  if (!mk) return;
+  const n = Number(mk.dataset.n);
+  sel.has(n) ? sel.delete(n) : sel.add(n);
+  resetForm(); renderMarks(); renderSide();
+});
+
+// Panel lateral
+$('side').addEventListener('click', async e => {
+  const t = e.target;
+  const rm = t.closest('[data-rm]'); if (rm){ sel.delete(Number(rm.dataset.rm)); renderMarks(); renderSide(); return; }
+  const st = t.closest('[data-st]'); if (st){ form.depto = ($('fDep')||{}).value || form.depto; form.obs = $('fObs').value; form.estado = st.dataset.st; renderSide(); return; }
+  const dep = t.closest('[data-dep]'); if (dep){ $('q').value = dep.dataset.dep; $('q').dispatchEvent(new Event('input')); return; }
+  if (t.id === 'bCancel'){ sel.clear(); resetForm(); renderMarks(); renderSide(); return; }
+  if (t.id === 'bSave'){
+    const estado = form.estado, depto = $('fDep').value.trim(), obs = $('fObs').value.trim();
+    if ((estado==='Asignado'||estado==='Reservado') && !depto){ $('fDep').focus(); toast('Escribe el departamento', true); return; }
+    const nums = [...sel];
+    const ok = await guardar(nums, {estado, depto: (estado==='Asignado'||estado==='Reservado') ? depto : '', obs},
+      `${nums.length>1?nums.length+' estacionamientos':'Estac. '+nums[0]} → ${estado}${depto&&estado!=='Libre'&&estado!=='No disponible'?' · '+depto.toUpperCase():''}`);
+    if (ok){ sel.clear(); resetForm(); } renderAll(); return;
+  }
+  if (t.id === 'bFree'){
+    const nums = [...sel];
+    const ok = await guardar(nums, {estado:'Libre', depto:'', obs:''}, `${nums.length>1?nums.length+' estacionamientos liberados':'Estac. '+nums[0]+' liberado'}`);
+    if (ok){ sel.clear(); resetForm(); } renderAll();
+  }
+});
+$('side').addEventListener('input', e => {
+  if (e.target.id === 'fDep'){ form.depto = e.target.value; const w = [...sel].map(byN).filter(s=>s.depto && form.depto && s.depto!==form.depto.toUpperCase()); /* aviso se actualiza al guardar */ }
+  if (e.target.id === 'fObs') form.obs = e.target.value;
+});
+$('side').addEventListener('keydown', e => { if (e.key==='Enter' && e.target.id==='fDep'){ e.preventDefault(); $('bSave').click(); } });
+document.addEventListener('keydown', e => { if (e.key==='Escape' && sel.size){ sel.clear(); resetForm(); renderMarks(); renderSide(); } });
+
+// Dashboard
+$('vDash').addEventListener('click', e => {
+  const f = e.target.closest('[data-piso]'); if (f){ irAPlano(f.dataset.piso); return; }
+  const d = e.target.closest('[data-dep]'); if (d){ const s = deptoMap()[d.dataset.dep][0]; $('q').value = d.dataset.dep; q = d.dataset.dep; irAPlano(s.piso); renderMarks(); }
+});
+
+// Listado
+['lPiso','lEstado'].forEach(id => $(id).addEventListener('change', renderList));
+$('lq').addEventListener('input', renderList);
+$('lBody').addEventListener('change', e => { const tr = e.target.closest('tr'); if (tr) guardarFila(tr); });
+$('lBody').addEventListener('keydown', e => { if (e.key==='Enter' && e.target.tagName==='INPUT') e.target.blur(); });
+$('lBody').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g){ const s = byN(Number(g.dataset.go)); irAPlano(s.piso, s.n); } });
+
+/* ---------- Inicio ---------- */
+let iniciado = false;
+
+function mostrarLogin(){
+  $('login').hidden = false; $('lgNombre').value = USUARIO; $('lgErr').textContent = '';
+  setTimeout(() => (USUARIO ? $('lgPass') : $('lgNombre')).focus(), 30);
+}
+
+async function iniciar(){
+  try{
+    $('vpmsg').style.display = ''; $('vpmsg').textContent = 'Cargando estacionamientos…';
+    D = await api('getDatos');
+    $('login').hidden = true; $('uName').textContent = USUARIO;
+    if (!D.pisos.length){ $('vpmsg').textContent = 'No hay pisos configurados.'; return; }
+    if (!iniciado){ iniciado = true; cargarPiso(D.pisos[0].piso); } else renderAll();
+  }catch(e){ if ($('login').hidden) $('vpmsg').textContent = e.message || String(e); }
+}
+
+$('lgForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nombre = $('lgNombre').value.trim(), password = $('lgPass').value;
+  $('lgBtn').disabled = true; $('lgErr').textContent = '';
+  try{
+    const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'No se pudo iniciar sesión');
+    USUARIO = nombre; try { localStorage.setItem('estac_nombre', nombre); } catch(_) {}
+    $('lgPass').value = '';
+    await iniciar();
+  }catch(err){ $('lgErr').textContent = err.message; }
+  finally{ $('lgBtn').disabled = false; }
+});
+
+$('bSalir').onclick = async () => {
+  try { await fetch('/api/logout', {method:'POST'}); } catch(e) {}
+  mostrarLogin();
+};
+
+// Refresca cada 45 s para ver cambios de otros usuarios (sin interrumpir ediciones)
+setInterval(async () => {
+  if (!iniciado || window.DEMO || document.hidden || sel.size || !$('login').hidden) return;
+  const a = document.activeElement;
+  if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && a.id !== 'q') return;
+  try { D = await api('getDatos'); renderAll(); } catch(e) {}
+}, 45000);
+
+if (window.DEMO){ $('bSalir').style.display = 'none'; iniciar(); toast('Modo demo: datos de ejemplo'); }
+else iniciar();
+</script>
+</body>
+</html>
